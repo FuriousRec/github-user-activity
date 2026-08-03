@@ -1,0 +1,8 @@
+target/
+out/
+*.class
+*.log
+.idea/
+.vscode/
+.metals/
+.bloop/

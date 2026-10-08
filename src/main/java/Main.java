@@ -2,7 +2,7 @@ import java.io.IOException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.http.HttpClient;//To connect with GITHUB
-import java.net.URI;
+import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
@@ -13,7 +13,7 @@ public class Main {
         public static void main(String[] commandLineArguments) {
 
                 // ANCHOR: Username Validation
-                if (commandLineArguments.length == 0
+                if (commandLineArguments.length != 1
                                 || commandLineArguments[0].isBlank()) {
 
                         printUsageInstructions();
@@ -22,7 +22,7 @@ public class Main {
 
                 // ANCHOR: Username Input
                 try {
-                        String githubUsername = commandLineArguments[0].trim();
+                        String githubUsername = GithubRequests.username(commandLineArguments[0]);
 
                         // ANCHOR: GitHub API URL
                         // We are constructing the GITHUB URL FOR the users page
@@ -32,15 +32,10 @@ public class Main {
                         String githubRepositoriesUrl = "https://api.github.com/users/"
                                         + githubUsername
                                         + "/repos";
-                        HttpClient githubHttpClient = HttpClient.newHttpClient();// the messenger
+                        HttpClient githubHttpClient = GithubRequests.client();// the messenger
 
                         // ANCHOR: HTTP Request
-                        HttpRequest githubActivityRequest = HttpRequest.newBuilder()
-                                        .uri(URI.create(githubActivityUrl))
-                                        .header("Accept", "application/vnd.github+json")
-                                        .header("User-Agent", "github-user-activity-cli")
-                                        .GET()
-                                        .build();
+                        HttpRequest githubActivityRequest = GithubRequests.get(githubActivityUrl);
 
                         // ANCHOR: HTTP Response
                         HttpResponse<String> githubActivityResponse = githubHttpClient.send(
@@ -108,6 +103,10 @@ public class Main {
                                                                 + responseStatusCode
                                                                 + ".");
                         }
+                } catch (IllegalArgumentException exception) {
+                        System.out.println("Error: " + exception.getMessage());
+                } catch (HttpTimeoutException exception) {
+                        System.out.println("Error: GitHub request timed out. Please try again later.");
                 } catch (IOException exception) {
                         System.out.println(
                                         "Error: Could not process the GitHub response.");
@@ -139,12 +138,7 @@ public class Main {
                                         + "&page="
                                         + currentPage;
 
-                        HttpRequest githubRepositoriesRequest = HttpRequest.newBuilder()
-                                        .uri(URI.create(pagedRepositoriesUrl))
-                                        .header("Accept", "application/vnd.github+json")
-                                        .header("User-Agent", "github-user-activity-cli")
-                                        .GET()
-                                        .build();
+                        HttpRequest githubRepositoriesRequest = GithubRequests.get(pagedRepositoriesUrl);
 
                         HttpResponse<String> githubRepositoriesResponse = githubHttpClient.send(
                                         githubRepositoriesRequest,
@@ -200,7 +194,7 @@ public class Main {
 
         // ANCHOR: Usage Instructions
         private static void printUsageInstructions() {
-                System.out.println("Error: Please provide a GitHub username.");
+                System.out.println("Error: Please provide exactly one GitHub username.");
                 System.out.println(
                                 "Usage: mvn exec:java "
                                                 + "\"-Dexec.mainClass=Main\" "

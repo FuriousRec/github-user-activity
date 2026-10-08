@@ -12,7 +12,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Compile application
+      - name: Compile and run JUnit tests
         run: mvn --batch-mode --no-transfer-progress package
       - name: Run offline regression checks
         run: sh scripts/test-offline.sh

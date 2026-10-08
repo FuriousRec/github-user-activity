@@ -70,3 +70,18 @@ These checks need no GitHub credentials, network access, Maven or downloaded lib
 They cover username boundaries and invalid input, connection timeout configuration,
 and request headers/timeouts for both API routes. They do not simulate a live network timeout.
 GitHub Actions compiles the full application and runs the offline checks on pushes and PRs.
+
+## Event formatting tests
+
+Run `mvn test` to execute the JUnit formatter tests (Maven downloads dependencies
+on the first run). They use local JSON fixtures and do not call GitHub.
+The existing dependency-free request-policy checks still run with
+`sh scripts/test-offline.sh`. CI runs both suites.
+
+Pull requests use the payload's top-level number, with a fallback to the nested
+pull-request object. An explicit `merged` action is displayed as “Merged”.
+A `closed` action is also displayed as “Merged” when the nested `merged` flag is
+true; without that evidence it stays “Closed”. Branch formatting removes only
+the leading `refs/heads/` prefix and preserves the rest of the branch name.
+
+Payload reference: [GitHub event types](https://docs.github.com/en/rest/using-the-rest-api/github-event-types).

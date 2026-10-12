@@ -1,6 +1,8 @@
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
+import java.time.Instant;
 import java.time.Duration;
 
 /** Shared validation and request policy for public GitHub API calls. */
@@ -35,5 +37,38 @@ final class GithubRequests {
                 .header("User-Agent", "github-user-activity-cli")
                 .GET()
                 .build();
+    }
+
+    static boolean isRateLimited(int statusCode) {
+        return statusCode == 403 || statusCode == 429;
+    }
+
+    static String rateLimitMessage(HttpHeaders headers) {
+        Long retryAfterSeconds = nonNegativeLong(headers.firstValue("Retry-After").orElse(null));
+        if (retryAfterSeconds != null) {
+            return "GitHub API rate limit reached. Please try again in "
+                    + retryAfterSeconds + (retryAfterSeconds == 1 ? " second." : " seconds.");
+        }
+
+        Long resetEpochSeconds =
+                nonNegativeLong(headers.firstValue("X-RateLimit-Reset").orElse(null));
+        if (resetEpochSeconds != null) {
+            return "GitHub API rate limit reached. Please try again after "
+                    + Instant.ofEpochSecond(resetEpochSeconds) + ".";
+        }
+
+        return "GitHub API rate limit reached. Please try again later.";
+    }
+
+    private static Long nonNegativeLong(String value) {
+        if (value == null || !value.matches("[0-9]+")) {
+            return null;
+        }
+        try {
+            long parsed = Long.parseLong(value);
+            return parsed >= 0 ? parsed : null;
+        } catch (NumberFormatException exception) {
+            return null;
+        }
     }
 }

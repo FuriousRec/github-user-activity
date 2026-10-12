@@ -93,8 +93,9 @@ public class Main {
                                                                 + "\" was not found.");
                         }
 
-                        else if (responseStatusCode == 403) {
-                                System.out.println("Error: GitHub API rate limit reached. Please try again later.");
+                        else if (GithubRequests.isRateLimited(responseStatusCode)) {
+                                System.out.println("Error: " + GithubRequests.rateLimitMessage(
+                                                githubActivityResponse.headers()));
                         }
 
                         else {
@@ -144,9 +145,12 @@ public class Main {
                                         githubRepositoriesRequest,
                                         HttpResponse.BodyHandlers.ofString());
 
-                        if (githubRepositoriesResponse.statusCode() == 403) {
+                        if (GithubRequests.isRateLimited(
+                                        githubRepositoriesResponse.statusCode())) {
                                 System.out.println(
-                                                "Could not load repositories because the GitHub API rate limit was reached.");
+                                                "Could not load repositories: "
+                                                                + GithubRequests.rateLimitMessage(
+                                                                                githubRepositoriesResponse.headers()));
                                 return;
                         }
 

@@ -23,6 +23,8 @@ public class Main {
                 // ANCHOR: Username Input
                 try {
                         String githubUsername = GithubRequests.username(commandLineArguments[0]);
+                        String githubToken = GithubRequests.token(
+                                        System.getenv("GITHUB_TOKEN"));
 
                         // ANCHOR: GitHub API URL
                         // We are constructing the GITHUB URL FOR the users page
@@ -35,7 +37,9 @@ public class Main {
                         HttpClient githubHttpClient = GithubRequests.client();// the messenger
 
                         // ANCHOR: HTTP Request
-                        HttpRequest githubActivityRequest = GithubRequests.get(githubActivityUrl);
+                        HttpRequest githubActivityRequest = GithubRequests.get(
+                                        githubActivityUrl,
+                                        githubToken);
 
                         // ANCHOR: HTTP Response
                         HttpResponse<String> githubActivityResponse = githubHttpClient.send(
@@ -54,7 +58,8 @@ public class Main {
                                 displayAllRepositories(
                                                 githubHttpClient,
                                                 githubRepositoriesUrl,
-                                                githubUsername);
+                                                githubUsername,
+                                                githubToken);
 
                                 String githubActivityJson = githubActivityResponse.body();
 
@@ -84,6 +89,12 @@ public class Main {
                                                                         + " | "
                                                                         + readableEventDescription);
                                 }
+                        }
+
+                        else if (responseStatusCode == 401 && githubToken != null) {
+                                System.out.println(
+                                                "Error: GitHub rejected GITHUB_TOKEN. "
+                                                                + "Check or remove the environment variable.");
                         }
 
                         else if (responseStatusCode == 404) {
@@ -122,7 +133,8 @@ public class Main {
         private static void displayAllRepositories(
                         HttpClient githubHttpClient,
                         String githubRepositoriesUrl,
-                        String githubUsername)
+                        String githubUsername,
+                        String githubToken)
                         throws IOException, InterruptedException {
 
                 ObjectMapper jsonObjectMapper = new ObjectMapper();
@@ -139,11 +151,21 @@ public class Main {
                                         + "&page="
                                         + currentPage;
 
-                        HttpRequest githubRepositoriesRequest = GithubRequests.get(pagedRepositoriesUrl);
+                        HttpRequest githubRepositoriesRequest = GithubRequests.get(
+                                        pagedRepositoriesUrl,
+                                        githubToken);
 
                         HttpResponse<String> githubRepositoriesResponse = githubHttpClient.send(
                                         githubRepositoriesRequest,
                                         HttpResponse.BodyHandlers.ofString());
+
+                        if (githubRepositoriesResponse.statusCode() == 401
+                                        && githubToken != null) {
+                                System.out.println(
+                                                "Could not load repositories: GitHub rejected GITHUB_TOKEN. "
+                                                                + "Check or remove the environment variable.");
+                                return;
+                        }
 
                         if (GithubRequests.isRateLimited(
                                         githubRepositoriesResponse.statusCode())) {

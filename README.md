@@ -12,6 +12,7 @@ This project was built as a backend/CLI practice project with Maven, Java's `Htt
 - Handles missing users and both GitHub rate-limit responses (`403` and `429`)
 - Validates usernames before making requests
 - Bounds each HTTP request to 30 seconds, with a 10-second connection timeout
+- Supports optional authenticated requests through a non-logged `GITHUB_TOKEN` environment variable
 
 ## Tech Stack
 
@@ -32,6 +33,17 @@ Example:
 ```bash
 mvn exec:java "-Dexec.mainClass=Main" "-Dexec.args=FuriousRec"
 ```
+
+For authenticated requests, set a token in the environment instead of passing it
+as a command-line argument:
+
+```bash
+export GITHUB_TOKEN='your-token'
+mvn exec:java "-Dexec.mainClass=Main" "-Dexec.args=FuriousRec"
+```
+
+The token is sent only in the `Authorization` header. The CLI does not print it.
+Public-only use remains the default when the variable is absent or blank.
 
 ## Example Output
 
@@ -56,7 +68,8 @@ Provide exactly one username. Invalid characters, repeated hyphens, and names lo
 than 39 characters are rejected before any network request. Surrounding whitespace
 is trimmed. A syntactically valid name may still refer to a nonexistent user.
 
-Both activity and repository requests use the same headers and timeout policy.
+Both activity and repository requests use the same headers, pinned GitHub API
+version, optional bearer token, and timeout policy.
 Rate-limit responses include the server's retry delay or UTC reset time when GitHub
 provides it through `Retry-After` or `X-RateLimit-Reset`. The CLI reports this guidance
 but does not sleep or retry automatically. A timed-out request prints a friendly error.
@@ -70,7 +83,8 @@ sh scripts/test-offline.sh
 
 These checks need no GitHub credentials, network access, Maven or downloaded libraries.
 They cover username boundaries and invalid input, connection timeout configuration,
-request headers/timeouts for both API routes, and rate-limit status/header handling. They do not simulate a live network timeout.
+request headers/timeouts for both API routes, optional token validation and header
+injection, and rate-limit status/header handling. They do not simulate a live network timeout.
 GitHub Actions compiles the full application and runs the offline checks on pushes and PRs.
 
 ## Event formatting tests

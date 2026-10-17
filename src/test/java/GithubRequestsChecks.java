@@ -25,7 +25,22 @@ public final class GithubRequestsChecks {
             equal("GET", request.method());
             equal(GithubRequests.REQUEST_TIMEOUT, request.timeout().orElseThrow());
             equal("application/vnd.github+json", request.headers().firstValue("Accept").orElseThrow());
+            equal("2022-11-28",
+                    request.headers().firstValue("X-GitHub-Api-Version").orElseThrow());
             equal("github-user-activity-cli", request.headers().firstValue("User-Agent").orElseThrow());
+            equal(false, request.headers().firstValue("Authorization").isPresent());
+        }
+        HttpRequest authenticated = GithubRequests.get(
+                "https://api.github.com/users/FuriousRec/events",
+                "  test-token_123  ");
+        equal("Bearer test-token_123",
+                authenticated.headers().firstValue("Authorization").orElseThrow());
+        equal(null, GithubRequests.token(null));
+        equal(null, GithubRequests.token(""));
+        equal(null, GithubRequests.token("   "));
+        for (String invalidToken : new String[] {
+                "token with spaces", "token\nvalue", "token\tvalue", "x".repeat(256)}) {
+            rejectsToken(invalidToken);
         }
         equal(true, GithubRequests.isRateLimited(403));
         equal(true, GithubRequests.isRateLimited(429));
@@ -62,5 +77,15 @@ public final class GithubRequestsChecks {
             return;
         }
         throw new AssertionError("Accepted invalid username: " + input);
+    }
+
+    private static void rejectsToken(String input) {
+        try {
+            GithubRequests.token(input);
+        } catch (IllegalArgumentException expected) {
+            checks++;
+            return;
+        }
+        throw new AssertionError("Accepted invalid token value");
     }
 }

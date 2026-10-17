@@ -31,12 +31,37 @@ final class GithubRequests {
     }
 
     static HttpRequest get(String url) {
-        return HttpRequest.newBuilder(URI.create(url))
+        return get(url, null);
+    }
+
+    static HttpRequest get(String url, String token) {
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "github-user-activity-cli")
-                .GET()
-                .build();
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "github-user-activity-cli");
+
+        String cleanToken = token(token);
+        if (cleanToken != null) {
+            request.header("Authorization", "Bearer " + cleanToken);
+        }
+
+        return request.GET().build();
+    }
+
+    static String token(String input) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+
+        String value = input.strip();
+        if (value.length() > 255
+                || value.chars().anyMatch(character ->
+                        character <= 32 || character >= 127)) {
+            throw new IllegalArgumentException(
+                    "GITHUB_TOKEN must contain 1–255 printable ASCII characters without spaces.");
+        }
+        return value;
     }
 
     static boolean isRateLimited(int statusCode) {

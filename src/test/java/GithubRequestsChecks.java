@@ -35,9 +35,9 @@ public final class GithubRequestsChecks {
                 "  test-token_123  ");
         equal("Bearer test-token_123",
                 authenticated.headers().firstValue("Authorization").orElseThrow());
-        equal(null, GithubRequests.token(null));
-        equal(null, GithubRequests.token(""));
-        equal(null, GithubRequests.token("   "));
+        check(GithubRequests.token(null) == null, "null token stays unauthenticated");
+        check(GithubRequests.token("") == null, "empty token stays unauthenticated");
+        check(GithubRequests.token("   ") == null, "blank token stays unauthenticated");
         for (String invalidToken : new String[] {
                 "token with spaces", "token\nvalue", "token\tvalue", "x".repeat(256)}) {
             rejectsToken(invalidToken);
@@ -65,6 +65,13 @@ public final class GithubRequestsChecks {
     private static void equal(Object expected, Object actual) {
         if (!expected.equals(actual)) {
             throw new AssertionError("Expected " + expected + ", got " + actual);
+        }
+        checks++;
+    }
+
+    private static void check(boolean condition, String message) {
+        if (!condition) {
+            throw new AssertionError(message);
         }
         checks++;
     }

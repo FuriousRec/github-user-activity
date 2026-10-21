@@ -42,9 +42,15 @@ public final class GithubRequestsChecks {
                 "token with spaces", "token\nvalue", "token\tvalue", "x".repeat(256)}) {
             rejectsToken(invalidToken);
         }
-        equal(true, GithubRequests.isRateLimited(403));
-        equal(true, GithubRequests.isRateLimited(429));
-        equal(false, GithubRequests.isRateLimited(401));
+        HttpHeaders noHeaders = HttpHeaders.of(Map.of(), (key, item) -> true);
+        equal(true, GithubRequests.isRateLimited(429, noHeaders));
+        equal(true, GithubRequests.isRateLimited(
+                403, headers("X-RateLimit-Remaining", "0")));
+        equal(true, GithubRequests.isRateLimited(403, headers("Retry-After", "60")));
+        equal(false, GithubRequests.isRateLimited(
+                403, headers("X-RateLimit-Remaining", "42")));
+        equal(false, GithubRequests.isRateLimited(403, noHeaders));
+        equal(false, GithubRequests.isRateLimited(401, noHeaders));
         equal("GitHub API rate limit reached. Please try again in 1 second.",
                 GithubRequests.rateLimitMessage(headers("Retry-After", "1")));
         equal("GitHub API rate limit reached. Please try again in 120 seconds.",

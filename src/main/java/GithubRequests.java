@@ -64,8 +64,20 @@ final class GithubRequests {
         return value;
     }
 
-    static boolean isRateLimited(int statusCode) {
-        return statusCode == 403 || statusCode == 429;
+    static boolean isRateLimited(int statusCode, HttpHeaders headers) {
+        if (statusCode == 429) {
+            return true;
+        }
+        if (statusCode != 403) {
+            return false;
+        }
+
+        // GitHub also uses 403 for ordinary authorization failures. Treat it as
+        // throttling only when the response carries primary- or secondary-limit
+        // evidence, so users do not receive misleading retry advice.
+        String remaining = headers.firstValue("X-RateLimit-Remaining").orElse("");
+        return "0".equals(remaining.trim())
+                || nonNegativeLong(headers.firstValue("Retry-After").orElse(null)) != null;
     }
 
     static String rateLimitMessage(HttpHeaders headers) {

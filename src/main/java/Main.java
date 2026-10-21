@@ -104,7 +104,9 @@ public class Main {
                                                                 + "\" was not found.");
                         }
 
-                        else if (GithubRequests.isRateLimited(responseStatusCode)) {
+                        else if (GithubRequests.isRateLimited(
+                                                responseStatusCode,
+                                                githubActivityResponse.headers())) {
                                 System.out.println("Error: " + GithubRequests.rateLimitMessage(
                                                 githubActivityResponse.headers()));
                         }
@@ -168,7 +170,8 @@ public class Main {
                         }
 
                         if (GithubRequests.isRateLimited(
-                                        githubRepositoriesResponse.statusCode())) {
+                                        githubRepositoriesResponse.statusCode(),
+                                        githubRepositoriesResponse.headers())) {
                                 System.out.println(
                                                 "Could not load repositories: "
                                                                 + GithubRequests.rateLimitMessage(

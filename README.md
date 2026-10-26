@@ -7,7 +7,7 @@ This project was built as a backend/CLI practice project with Maven, Java's `Htt
 ## Features
 
 - Fetches recent public GitHub events for a username
-- Lists public repositories with pagination
+- Lists public repositories using GitHub's server-provided pagination links
 - Formats common event types like pushes, stars, forks, issues, pull requests, created refs, and deleted refs
 - Handles missing users and distinguishes rate-limited responses from ordinary `403 Forbidden` errors
 - Validates usernames before making requests
@@ -69,7 +69,10 @@ than 39 characters are rejected before any network request. Surrounding whitespa
 is trimmed. A syntactically valid name may still refer to a nonexistent user.
 
 Both activity and repository requests use the same headers, pinned GitHub API
-version, optional bearer token, and timeout policy.
+version, optional bearer token, and timeout policy. Repository pagination follows
+GitHub's `Link: rel="next"` response instead of guessing from page length. Every
+request and pagination link is restricted to the trusted `https://api.github.com`
+origin before an optional token can be attached.
 A `429` response is always treated as rate limiting. A `403` is treated as rate limiting only when GitHub reports exhausted quota or a retry delay, avoiding misleading advice for ordinary permission failures. Rate-limit responses include the server's retry delay or UTC reset time when GitHub
 provides it through `Retry-After` or `X-RateLimit-Reset`. The CLI reports this guidance
 but does not sleep or retry automatically. A timed-out request prints a friendly error.
@@ -83,8 +86,9 @@ sh scripts/test-offline.sh
 
 These checks need no GitHub credentials, network access, Maven or downloaded libraries.
 They cover username boundaries and invalid input, connection timeout configuration,
-request headers/timeouts for both API routes, optional token validation and header
-injection, and rate-limit versus ordinary-forbidden status/header handling. They do not simulate a live network timeout.
+request headers/timeouts for both API routes, trusted-origin enforcement, safe
+`Link` pagination, optional token validation and header injection, and rate-limit
+versus ordinary-forbidden status/header handling. They do not simulate a live network timeout.
 GitHub Actions compiles the full application and runs the offline checks on pushes and PRs.
 
 ## Event formatting tests

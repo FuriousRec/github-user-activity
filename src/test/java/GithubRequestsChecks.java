@@ -30,6 +30,35 @@ public final class GithubRequestsChecks {
             equal("github-user-activity-cli", request.headers().firstValue("User-Agent").orElseThrow());
             equal(false, request.headers().firstValue("Authorization").isPresent());
         }
+        for (String invalidUrl : new String[] {
+                "http://api.github.com/users/FuriousRec/events",
+                "https://api.github.com.evil.example/users/FuriousRec/events",
+                "https://token@api.github.com/users/FuriousRec/events",
+                "https://api.github.com:444/users/FuriousRec/events",
+                "https://api.github.com/users/FuriousRec/events#fragment",
+                "not a url"}) {
+            rejectsUrl(invalidUrl);
+        }
+        HttpRequest explicitHttpsPort = GithubRequests.get(
+                "https://api.github.com:443/users/FuriousRec/events");
+        equal("api.github.com", explicitHttpsPort.uri().getHost());
+
+        HttpHeaders noLink = HttpHeaders.of(Map.of(), (key, item) -> true);
+        check(GithubRequests.nextPage(noLink) == null, "missing Link has no next page");
+        equal(
+                "https://api.github.com/users/FuriousRec/repos?per_page=100&page=2",
+                GithubRequests.nextPage(headers(
+                        "Link",
+                        "<https://api.github.com/users/FuriousRec/repos?per_page=100&page=1>; rel=\"prev\", "
+                                + "<https://api.github.com/users/FuriousRec/repos?per_page=100&page=2>; rel=\"next\", "
+                                + "<https://api.github.com/users/FuriousRec/repos?per_page=100&page=4>; rel=\"last\"")));
+        check(GithubRequests.nextPage(headers("Link", "malformed")) == null,
+                "malformed Link is ignored");
+        rejectsPaginationLink(
+                "<https://evil.example/repos?page=2>; rel=\"next\"");
+        rejectsPaginationLink(
+                "<http://api.github.com/repos?page=2>; rel=\"next\"");
+
         HttpRequest authenticated = GithubRequests.get(
                 "https://api.github.com/users/FuriousRec/events",
                 "  test-token_123  ");
@@ -90,6 +119,26 @@ public final class GithubRequestsChecks {
             return;
         }
         throw new AssertionError("Accepted invalid username: " + input);
+    }
+
+    private static void rejectsUrl(String input) {
+        try {
+            GithubRequests.get(input, "test-token");
+        } catch (IllegalArgumentException expected) {
+            checks++;
+            return;
+        }
+        throw new AssertionError("Accepted untrusted API URL: " + input);
+    }
+
+    private static void rejectsPaginationLink(String link) {
+        try {
+            GithubRequests.nextPage(headers("Link", link));
+        } catch (IllegalArgumentException expected) {
+            checks++;
+            return;
+        }
+        throw new AssertionError("Accepted untrusted pagination link: " + link);
     }
 
     private static void rejectsToken(String input) {

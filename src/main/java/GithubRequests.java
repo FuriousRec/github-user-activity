@@ -4,11 +4,15 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.time.Instant;
 import java.time.Duration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Shared validation and request policy for public GitHub API calls. */
 final class GithubRequests {
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
+    private static final Pattern LINK =
+            Pattern.compile("<([^>]+)>\\s*;\\s*rel=\\\"([^\\\"]+)\\\"");
 
     private GithubRequests() {}
 
@@ -35,7 +39,7 @@ final class GithubRequests {
     }
 
     static HttpRequest get(String url, String token) {
-        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest.Builder request = HttpRequest.newBuilder(githubApiUri(url))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
@@ -62,6 +66,41 @@ final class GithubRequests {
                     "GITHUB_TOKEN must contain 1–255 printable ASCII characters without spaces.");
         }
         return value;
+    }
+
+    static String nextPage(HttpHeaders headers) {
+        for (String header : headers.allValues("Link")) {
+            Matcher links = LINK.matcher(header);
+            while (links.find()) {
+                for (String relation : links.group(2).split("\\s+")) {
+                    if ("next".equals(relation)) {
+                        return githubApiUri(links.group(1)).toString();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static URI githubApiUri(String url) {
+        final URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "GitHub API URL is invalid.", exception);
+        }
+
+        boolean validPort = uri.getPort() == -1 || uri.getPort() == 443;
+        if (!"https".equalsIgnoreCase(uri.getScheme())
+                || !"api.github.com".equalsIgnoreCase(uri.getHost())
+                || uri.getUserInfo() != null
+                || !validPort
+                || uri.getFragment() != null) {
+            throw new IllegalArgumentException(
+                    "GitHub API URL must use the trusted https://api.github.com origin.");
+        }
+        return uri;
     }
 
     static boolean isRateLimited(int statusCode, HttpHeaders headers) {

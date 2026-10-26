@@ -5,6 +5,8 @@ import java.net.http.HttpClient;//To connect with GITHUB
 import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Main {
         private static final int GITHUB_PAGE_SIZE = 100;
@@ -140,21 +142,24 @@ public class Main {
                         throws IOException, InterruptedException {
 
                 ObjectMapper jsonObjectMapper = new ObjectMapper();
-                int currentPage = 1;
                 int repositoryCount = 0;
+                String nextRepositoriesUrl = githubRepositoriesUrl
+                                + "?per_page="
+                                + GITHUB_PAGE_SIZE;
+                Set<String> visitedPages = new HashSet<>();
 
                 System.out.println();
                 System.out.println("Public repositories:");
 
-                while (true) {
-                        String pagedRepositoriesUrl = githubRepositoriesUrl
-                                        + "?per_page="
-                                        + GITHUB_PAGE_SIZE
-                                        + "&page="
-                                        + currentPage;
+                while (nextRepositoriesUrl != null) {
+                        if (!visitedPages.add(nextRepositoriesUrl)) {
+                                System.out.println(
+                                                "Could not load repositories: GitHub returned a pagination cycle.");
+                                return;
+                        }
 
                         HttpRequest githubRepositoriesRequest = GithubRequests.get(
-                                        pagedRepositoriesUrl,
+                                        nextRepositoriesUrl,
                                         githubToken);
 
                         HttpResponse<String> githubRepositoriesResponse = githubHttpClient.send(
@@ -192,6 +197,12 @@ public class Main {
                         JsonNode githubRepositories = jsonObjectMapper.readTree(
                                         githubRepositoriesResponse.body());
 
+                        if (!githubRepositories.isArray()) {
+                                System.out.println(
+                                                "Could not load repositories: GitHub returned an unexpected response.");
+                                return;
+                        }
+
                         if (githubRepositories.isEmpty()) {
                                 break;
                         }
@@ -207,11 +218,8 @@ public class Main {
                                 repositoryCount++;
                         }
 
-                        if (githubRepositories.size() < GITHUB_PAGE_SIZE) {
-                                break;
-                        }
-
-                        currentPage++;
+                        nextRepositoriesUrl = GithubRequests.nextPage(
+                                        githubRepositoriesResponse.headers());
                 }
 
                 if (repositoryCount == 0) {

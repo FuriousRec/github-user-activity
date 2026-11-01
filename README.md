@@ -6,7 +6,7 @@ This project was built as a backend/CLI practice project with Maven, Java's `Htt
 
 ## Features
 
-- Fetches recent public GitHub events for a username
+- Fetches all available recent public GitHub events for a username, following pagination and deduplicating by event ID
 - Lists public repositories using GitHub's server-provided pagination links
 - Formats common event types like pushes, stars, forks, issues, pull requests, created refs, and deleted refs
 - Handles missing users and distinguishes rate-limited responses from ordinary `403 Forbidden` errors
@@ -69,10 +69,12 @@ than 39 characters are rejected before any network request. Surrounding whitespa
 is trimmed. A syntactically valid name may still refer to a nonexistent user.
 
 Both activity and repository requests use the same headers, pinned GitHub API
-version, optional bearer token, and timeout policy. Repository pagination follows
-GitHub's `Link: rel="next"` response instead of guessing from page length. Every
-request and pagination link is restricted to the trusted `https://api.github.com`
-origin before an optional token can be attached.
+version, optional bearer token, and timeout policy. Pagination follows GitHub's
+`Link: rel="next"` response instead of guessing from page length. Activity requests
+ask for 100 events per page and deduplicate by GitHub event ID so a feed shift between
+page requests cannot produce repeated output. Every request and pagination link is
+restricted to the trusted `https://api.github.com` origin before an optional token
+can be attached.
 A `429` response is always treated as rate limiting. A `403` is treated as rate limiting only when GitHub reports exhausted quota or a retry delay, avoiding misleading advice for ordinary permission failures. Rate-limit responses include the server's retry delay or UTC reset time when GitHub
 provides it through `Retry-After` or `X-RateLimit-Reset`. The CLI reports this guidance
 but does not sleep or retry automatically. A timed-out request prints a friendly error.
@@ -93,8 +95,10 @@ GitHub Actions compiles the full application and runs the offline checks on push
 
 ## Event formatting tests
 
-Run `mvn test` to execute the JUnit formatter tests (Maven downloads dependencies
-on the first run). They use local JSON fixtures and do not call GitHub.
+Run `mvn test` to execute the JUnit formatter and activity-page aggregation tests
+(Maven downloads dependencies on the first run). They use local JSON fixtures and
+do not call GitHub. The activity tests verify stable ordering, overlapping-page
+deduplication, missing-ID preservation, and rejection of malformed page responses.
 The existing dependency-free request-policy checks still run with
 `sh scripts/test-offline.sh`. CI runs both suites.
 

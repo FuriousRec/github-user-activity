@@ -5,7 +5,9 @@ import java.net.http.HttpClient;//To connect with GITHUB
 import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Main {
@@ -32,7 +34,8 @@ public class Main {
                         // We are constructing the GITHUB URL FOR the users page
                         String githubActivityUrl = "https://api.github.com/users/"
                                         + githubUsername
-                                        + "/events";
+                                        + "/events?per_page="
+                                        + GITHUB_PAGE_SIZE;
                         String githubRepositoriesUrl = "https://api.github.com/users/"
                                         + githubUsername
                                         + "/repos";
@@ -63,34 +66,10 @@ public class Main {
                                                 githubUsername,
                                                 githubToken);
 
-                                String githubActivityJson = githubActivityResponse.body();
-
-                                if (githubActivityJson.trim().equals("[]")) {
-                                        System.out.println("No recent public activity found.");
-                                        return;
-                                } else {
-                                        System.out.println("Recent public activity is available.");
-                                }
-                                ObjectMapper jsonObjectMapper = new ObjectMapper();
-
-                                JsonNode githubEvents = jsonObjectMapper.readTree(githubActivityJson);
-
-                                System.out.println(
-                                                "Number of recent events: " + githubEvents.size());
-                                // ANCHOR: Display Every GitHub Event
-                                for (JsonNode githubEvent : githubEvents) {
-
-                                        String eventCreatedAt = githubEvent
-                                                        .path("created_at")
-                                                        .asText("Unknown time");
-
-                                        String readableEventDescription = GithubEventFormatter.format(githubEvent);
-
-                                        System.out.println(
-                                                        eventCreatedAt
-                                                                        + " | "
-                                                                        + readableEventDescription);
-                                }
+                                displayAllActivity(
+                                                githubHttpClient,
+                                                githubActivityResponse,
+                                                githubToken);
                         }
 
                         else if (responseStatusCode == 401 && githubToken != null) {
@@ -130,6 +109,100 @@ public class Main {
                 } catch (InterruptedException exception) {
                         Thread.currentThread().interrupt();
                         System.out.println("Error: The GitHub request was interrupted.");
+                }
+        }
+
+        // ANCHOR: Display All Recent GitHub Activity
+        private static void displayAllActivity(
+                        HttpClient githubHttpClient,
+                        HttpResponse<String> firstResponse,
+                        String githubToken)
+                        throws IOException, InterruptedException {
+
+                ObjectMapper jsonObjectMapper = new ObjectMapper();
+                List<JsonNode> githubEvents = new ArrayList<>();
+                Set<String> seenEventIds = new HashSet<>();
+                Set<String> visitedPages = new HashSet<>();
+                HttpResponse<String> currentResponse = firstResponse;
+                visitedPages.add(firstResponse.request().uri().toString());
+
+                while (true) {
+                        JsonNode page = jsonObjectMapper.readTree(
+                                        currentResponse.body());
+                        try {
+                                GithubEventPages.appendUnique(
+                                                page,
+                                                githubEvents,
+                                                seenEventIds);
+                        } catch (IllegalArgumentException exception) {
+                                System.out.println(
+                                                "Could not load activity: GitHub returned an unexpected response.");
+                                return;
+                        }
+
+                        String nextActivityUrl = GithubRequests.nextPage(
+                                        currentResponse.headers());
+                        if (nextActivityUrl == null) {
+                                break;
+                        }
+                        if (!visitedPages.add(nextActivityUrl)) {
+                                System.out.println(
+                                                "Could not load activity: GitHub returned a pagination cycle.");
+                                return;
+                        }
+
+                        HttpRequest nextRequest = GithubRequests.get(
+                                        nextActivityUrl,
+                                        githubToken);
+                        currentResponse = githubHttpClient.send(
+                                        nextRequest,
+                                        HttpResponse.BodyHandlers.ofString());
+
+                        if (currentResponse.statusCode() == 401
+                                        && githubToken != null) {
+                                System.out.println(
+                                                "Could not load activity: GitHub rejected GITHUB_TOKEN. "
+                                                                + "Check or remove the environment variable.");
+                                return;
+                        }
+                        if (GithubRequests.isRateLimited(
+                                        currentResponse.statusCode(),
+                                        currentResponse.headers())) {
+                                System.out.println(
+                                                "Could not load activity: "
+                                                                + GithubRequests.rateLimitMessage(
+                                                                                currentResponse.headers()));
+                                return;
+                        }
+                        if (currentResponse.statusCode() != 200) {
+                                System.out.println(
+                                                "Could not load activity. Status code: "
+                                                                + currentResponse.statusCode()
+                                                                + ".");
+                                return;
+                        }
+                }
+
+                if (githubEvents.isEmpty()) {
+                        System.out.println("No recent public activity found.");
+                        return;
+                }
+
+                System.out.println("Recent public activity is available.");
+                System.out.println(
+                                "Number of recent events: " + githubEvents.size());
+
+                for (JsonNode githubEvent : githubEvents) {
+                        String eventCreatedAt = githubEvent
+                                        .path("created_at")
+                                        .asText("Unknown time");
+                        String readableEventDescription =
+                                        GithubEventFormatter.format(githubEvent);
+
+                        System.out.println(
+                                        eventCreatedAt
+                                                        + " | "
+                                                        + readableEventDescription);
                 }
         }
 

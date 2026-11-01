@@ -18,7 +18,7 @@ public final class GithubRequestsChecks {
         }
         equal(GithubRequests.CONNECT_TIMEOUT, GithubRequests.client().connectTimeout().orElseThrow());
         for (String url : new String[] {
-                "https://api.github.com/users/FuriousRec/events",
+                "https://api.github.com/users/FuriousRec/events?per_page=100",
                 "https://api.github.com/users/FuriousRec/repos?per_page=100&page=2"}) {
             HttpRequest request = GithubRequests.get(url);
             equal(url, request.uri().toString());
@@ -60,7 +60,7 @@ public final class GithubRequestsChecks {
                 "<http://api.github.com/repos?page=2>; rel=\"next\"");
 
         HttpRequest authenticated = GithubRequests.get(
-                "https://api.github.com/users/FuriousRec/events",
+                "https://api.github.com/users/FuriousRec/events?per_page=100",
                 "  test-token_123  ");
         equal("Bearer test-token_123",
                 authenticated.headers().firstValue("Authorization").orElseThrow());

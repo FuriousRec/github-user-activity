@@ -76,7 +76,8 @@ page requests cannot produce repeated output. Every request and pagination link 
 restricted to the trusted `https://api.github.com` origin before an optional token
 can be attached.
 A `429` response is always treated as rate limiting. A `403` is treated as rate limiting only when GitHub reports exhausted quota or a retry delay, avoiding misleading advice for ordinary permission failures. Rate-limit responses include the server's retry delay or UTC reset time when GitHub
-provides it through `Retry-After` or `X-RateLimit-Reset`. The CLI reports this guidance
+provides it through numeric or RFC 1123 date-form `Retry-After`, or through
+`X-RateLimit-Reset`. The CLI reports this guidance
 but does not sleep or retry automatically. A timed-out request prints a friendly error.
 The timeout applies to each request, not the total duration of a paginated repository scan.
 

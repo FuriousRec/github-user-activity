@@ -4,6 +4,9 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.time.Instant;
 import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -115,8 +118,10 @@ final class GithubRequests {
         // throttling only when the response carries primary- or secondary-limit
         // evidence, so users do not receive misleading retry advice.
         String remaining = headers.firstValue("X-RateLimit-Remaining").orElse("");
+        String retryAfter = headers.firstValue("Retry-After").orElse(null);
         return "0".equals(remaining.trim())
-                || nonNegativeLong(headers.firstValue("Retry-After").orElse(null)) != null;
+                || nonNegativeLong(retryAfter) != null
+                || httpDate(retryAfter) != null;
     }
 
     static String rateLimitMessage(HttpHeaders headers) {
@@ -124,6 +129,13 @@ final class GithubRequests {
         if (retryAfterSeconds != null) {
             return "GitHub API rate limit reached. Please try again in "
                     + retryAfterSeconds + (retryAfterSeconds == 1 ? " second." : " seconds.");
+        }
+
+        Instant retryAfterDate = httpDate(
+                headers.firstValue("Retry-After").orElse(null));
+        if (retryAfterDate != null) {
+            return "GitHub API rate limit reached. Please try again after "
+                    + retryAfterDate + ".";
         }
 
         Long resetEpochSeconds =
@@ -144,6 +156,19 @@ final class GithubRequests {
             long parsed = Long.parseLong(value);
             return parsed >= 0 ? parsed : null;
         } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private static Instant httpDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return ZonedDateTime.parse(
+                    value.strip(),
+                    DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+        } catch (DateTimeParseException exception) {
             return null;
         }
     }

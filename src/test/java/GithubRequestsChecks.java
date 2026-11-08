@@ -76,14 +76,21 @@ public final class GithubRequestsChecks {
         equal(true, GithubRequests.isRateLimited(
                 403, headers("X-RateLimit-Remaining", "0")));
         equal(true, GithubRequests.isRateLimited(403, headers("Retry-After", "60")));
+        equal(true, GithubRequests.isRateLimited(
+                403, headers("Retry-After", "Sun, 8 Nov 2026 20:15:00 GMT")));
         equal(false, GithubRequests.isRateLimited(
                 403, headers("X-RateLimit-Remaining", "42")));
+        equal(false, GithubRequests.isRateLimited(
+                403, headers("Retry-After", "not-a-date")));
         equal(false, GithubRequests.isRateLimited(403, noHeaders));
         equal(false, GithubRequests.isRateLimited(401, noHeaders));
         equal("GitHub API rate limit reached. Please try again in 1 second.",
                 GithubRequests.rateLimitMessage(headers("Retry-After", "1")));
         equal("GitHub API rate limit reached. Please try again in 120 seconds.",
                 GithubRequests.rateLimitMessage(headers("Retry-After", "120")));
+        equal("GitHub API rate limit reached. Please try again after 2026-11-08T20:15:00Z.",
+                GithubRequests.rateLimitMessage(headers(
+                        "Retry-After", "Sun, 8 Nov 2026 20:15:00 GMT")));
         equal("GitHub API rate limit reached. Please try again after 2023-11-14T22:13:20Z.",
                 GithubRequests.rateLimitMessage(headers("X-RateLimit-Reset", "1700000000")));
         equal("GitHub API rate limit reached. Please try again later.",

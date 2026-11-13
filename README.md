@@ -7,7 +7,7 @@ This project was built as a backend/CLI practice project with Maven, Java's `Htt
 ## Features
 
 - Fetches all available recent public GitHub events for a username, following pagination and deduplicating by event ID
-- Lists public repositories using GitHub's server-provided pagination links
+- Lists public repositories using GitHub's server-provided pagination links and deduplicates shifted pages
 - Formats common event types like pushes, stars, forks, issues, pull requests, created refs, and deleted refs
 - Handles missing users and distinguishes rate-limited responses from ordinary `403 Forbidden` errors
 - Validates usernames before making requests
@@ -75,6 +75,8 @@ ask for 100 events per page and deduplicate by GitHub event ID so a feed shift b
 page requests cannot produce repeated output. Every request and pagination link is
 restricted to the trusted `https://api.github.com` origin before an optional token
 can be attached.
+Repository pages are likewise deduplicated by stable repository ID, while entries
+without IDs remain visible instead of being silently discarded.
 A `429` response is always treated as rate limiting. A `403` is treated as rate limiting only when GitHub reports exhausted quota or a retry delay, avoiding misleading advice for ordinary permission failures. Rate-limit responses include the server's retry delay or UTC reset time when GitHub
 provides it through numeric or RFC 1123 date-form `Retry-After`, or through
 `X-RateLimit-Reset`. The CLI reports this guidance

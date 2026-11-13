@@ -220,6 +220,7 @@ public class Main {
                                 + "?per_page="
                                 + GITHUB_PAGE_SIZE;
                 Set<String> visitedPages = new HashSet<>();
+                Set<String> seenRepositoryIds = new HashSet<>();
 
                 System.out.println();
                 System.out.println("Public repositories:");
@@ -270,7 +271,12 @@ public class Main {
                         JsonNode githubRepositories = jsonObjectMapper.readTree(
                                         githubRepositoriesResponse.body());
 
-                        if (!githubRepositories.isArray()) {
+                        final List<JsonNode> uniqueRepositories;
+                        try {
+                                uniqueRepositories = GithubRepositoryPages.unique(
+                                                githubRepositories,
+                                                seenRepositoryIds);
+                        } catch (IllegalArgumentException exception) {
                                 System.out.println(
                                                 "Could not load repositories: GitHub returned an unexpected response.");
                                 return;
@@ -281,7 +287,7 @@ public class Main {
                         }
 
                         // ANCHOR: Display Every GitHub Repository
-                        for (JsonNode githubRepository : githubRepositories) {
+                        for (JsonNode githubRepository : uniqueRepositories) {
 
                                 String repositoryName = githubRepository
                                                 .path("name")

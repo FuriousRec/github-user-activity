@@ -60,15 +60,11 @@ public class Main {
                         System.out.println("Response status code: " + responseStatusCode);
 
                         if (responseStatusCode == 200) {
-                                displayAllRepositories(
-                                                githubHttpClient,
-                                                githubRepositoriesUrl,
-                                                githubUsername,
-                                                githubToken);
-
-                                displayAllActivity(
+                                displayResults(
                                                 githubHttpClient,
                                                 githubActivityResponse,
+                                                githubRepositoriesUrl,
+                                                githubUsername,
                                                 githubToken);
                         }
 
@@ -110,6 +106,27 @@ public class Main {
                         Thread.currentThread().interrupt();
                         System.out.println("Error: The GitHub request was interrupted.");
                 }
+        }
+
+        // A repository failure must not discard the activity response already fetched.
+        // Interruption still propagates to main, which restores the interrupt flag.
+        static void displayResults(
+                        HttpClient client,
+                        HttpResponse<String> activityResponse,
+                        String repositoriesUrl,
+                        String username,
+                        String token) throws IOException, InterruptedException {
+                try {
+                        displayAllRepositories(client, repositoriesUrl, username, token);
+                } catch (HttpTimeoutException exception) {
+                        System.out.println("Could not load repositories: GitHub request timed out.");
+                } catch (IOException exception) {
+                        System.out.println("Could not load repositories: could not process the GitHub response.");
+                } catch (IllegalArgumentException exception) {
+                        System.out.println("Could not load repositories: " + exception.getMessage());
+                }
+
+                displayAllActivity(client, activityResponse, token);
         }
 
         // ANCHOR: Display All Recent GitHub Activity

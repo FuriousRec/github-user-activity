@@ -13,6 +13,7 @@ This project was built as a backend/CLI practice project with Maven, Java's `Htt
 - Validates usernames before making requests
 - Bounds each HTTP request to 30 seconds, with a 10-second connection timeout
 - Supports optional authenticated requests through a non-logged `GITHUB_TOKEN` environment variable
+- Displays fetched activity even if repository loading times out, fails, or returns malformed data
 
 ## Tech Stack
 
@@ -82,6 +83,10 @@ provides it through numeric or RFC 1123 date-form `Retry-After`, or through
 `X-RateLimit-Reset`. The CLI reports this guidance
 but does not sleep or retry automatically. A timed-out request prints a friendly error.
 The timeout applies to each request, not the total duration of a paginated repository scan.
+Repository transport, JSON and pagination-link errors are reported for that section;
+the already-fetched activity response is still processed. An interrupted request
+cancels the run instead of continuing. Incomplete repository scans do not print a
+complete repository total.
 
 Run the offline regression checks with Java 21 and a POSIX shell (Git Bash on Windows):
 
@@ -104,6 +109,9 @@ do not call GitHub. The activity tests verify stable ordering, overlapping-page
 deduplication, missing-ID preservation, and rejection of malformed page responses.
 The existing dependency-free request-policy checks still run with
 `sh scripts/test-offline.sh`. CI runs both suites.
+Scripted HTTP-client tests also cover repository network failures and timeouts,
+malformed later pages, blocked untrusted links, activity pagination, request policy,
+and interruption without making live network requests.
 
 Pull requests use the payload's top-level number, with a fallback to the nested
 pull-request object. An explicit `merged` action is displayed as “Merged”.
